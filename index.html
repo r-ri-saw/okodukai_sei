@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>こづかいちょう</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  /* ── リセット & ベース ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F4FBF7;
+    --card: #FFFFFF;
+    --green-dark: #2D6A4F;
+    --green-mid: #52B788;
+    --green-light: #D8F3E5;
+    --amber: #FFB703;
+    --amber-light: #FFF4D0;
+    --red: #E63946;
+    --red-light: #FDECEA;
+    --blue: #4A90D9;
+    --blue-light: #E8F2FB;
+    --text-main: #1B3A2D;
+    --text-sub: #6B8C7A;
+    --border: #D6EDE1;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow: 0 2px 12px rgba(45,106,79,.10);
+  }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+    min-height: 100vh;
+    padding-bottom: 48px;
+  }
+
+  /* ── ヘッダー ── */
+  .app-header {
+    background: var(--green-dark);
+    color: #fff;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,.18);
+  }
+  .app-header h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+  }
+  .header-btn {
+    background: rgba(255,255,255,.18);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: .82rem;
+    font-family: inherit;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background .15s;
+  }
+  .header-btn:hover { background: rgba(255,255,255,.30); }
+
+  /* ── メインコンテナ ── */
+  .container { max-width: 520px; margin: 0 auto; padding: 20px 16px 0; }
+
+  /* ── 貯金残高ヒーロー ── */
+  .balance-hero {
+    background: linear-gradient(135deg, var(--green-dark) 0%, #40916C 100%);
+    border-radius: 20px;
+    padding: 28px 24px 24px;
+    color: #fff;
+    text-align: center;
+    margin-bottom: 20px;
+    box-shadow: 0 6px 24px rgba(45,106,79,.30);
+    position: relative;
+    overflow: hidden;
+  }
+  .balance-hero::before {
+    content: '';
+    position: absolute;
+    width: 180px; height: 180px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.07);
+    top: -50px; right: -40px;
+  }
+  .balance-label {
+    font-size: .82rem;
+    font-weight: 500;
+    opacity: .82;
+    margin-bottom: 6px;
+    letter-spacing: .04em;
+  }
+  .balance-amount {
+    font-size: 3.2rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -.02em;
+  }
+  .balance-unit { font-size: 1.4rem; font-weight: 700; margin-left: 4px; }
+  .balance-sub {
+    margin-top: 14px;
+    background: rgba(255,255,255,.15);
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: .84rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* ── セクションタイトル ── */
+  .section-title {
+    font-size: .78rem;
+    font-weight: 700;
+    color: var(--green-dark);
+    letter-spacing: .06em;
+    margin-bottom: 10px;
+    padding-left: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── 申請ボタングリッド ── */
+  .action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .action-btn {
+    border: none;
+    border-radius: var(--radius);
+    padding: 18px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: .9rem;
+    line-height: 1.35;
+    transition: transform .12s, box-shadow .12s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .action-btn:active { transform: scale(.96); }
+  .action-btn .icon { font-size: 1.6rem; }
+
+  .btn-allowance { background: var(--amber-light); color: #7A5200; }
+  .btn-allowance:hover { background: #FFE89A; }
+  .btn-bonus     { background: #FDE9FF; color: #6B1F82; }
+  .btn-bonus:hover { background: #F5C8FF; }
+  .btn-deposit   { background: var(--green-light); color: var(--green-dark); }
+  .btn-deposit:hover { background: #B7E9CB; }
+  .btn-withdraw  { background: var(--red-light); color: #8B1A22; }
+  .btn-withdraw:hover { background: #F9C4C7; }
+
+  /* ── カード共通 ── */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px;
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+  }
+
+  /* ── 履歴リスト ── */
+  .history-list { display: flex; flex-direction: column; gap: 10px; }
+  .history-item {
+    background: var(--card);
+    border-radius: var(--radius-sm);
+    padding: 13px 14px;
+    border: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 10px;
+  }
+  .h-type { font-weight: 700; font-size: .88rem; }
+  .h-amount { font-size: 1.05rem; font-weight: 900; text-align: right; }
+  .h-date { font-size: .75rem; color: var(--text-sub); }
+  .h-memo { font-size: .78rem; color: var(--text-sub); margin-top: 4px; grid-column: 1/-1; font-style: italic; }
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 99px;
+    font-size: .7rem;
+    font-weight: 700;
+    text-align: right;
+  }
+  .badge-pending  { background: var(--amber-light); color: #7A5200; }
+  .badge-approved { background: var(--green-light); color: var(--green-dark); }
+  .badge-rejected { background: var(--red-light); color: var(--red); }
+
+  .amount-in  { color: var(--green-dark); }
+  .amount-out { color: var(--red); }
+
+  /* ── 親画面 承認リスト ── */
+  .request-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .request-meta { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .request-type { font-weight: 700; font-size: .95rem; }
+  .request-amount { font-size: 1.15rem; font-weight: 900; }
+  .request-date { font-size: .75rem; color: var(--text-sub); margin-top: 2px; }
+
+  .memo-input {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    padding: 9px 12px;
+    font-family: inherit;
+    font-size: .84rem;
+    color: var(--text-main);
+    background: var(--bg);
+    resize: none;
+    margin-bottom: 10px;
+    transition: border-color .15s;
+  }
+  .memo-input:focus { outline: none; border-color: var(--green-mid); }
+
+  .btn-row { display: flex; gap: 8px; }
+  .btn-approve, .btn-reject {
+    flex: 1;
+    border: none;
+    border-radius: 9px;
+    padding: 10px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: .86rem;
+    cursor: pointer;
+    transition: opacity .12s;
+  }
+  .btn-approve { background: var(--green-mid); color: #fff; }
+  .btn-approve:hover { opacity: .87; }
+  .btn-reject { background: var(--red-light); color: var(--red); }
+  .btn-reject:hover { background: #F9C4C7; }
+
+  /* ── 残高調整 ── */
+  .adjust-row { display: flex; gap: 8px; align-items: flex-end; }
+  .adjust-row input { flex: 1; }
+
+  /* ── フォーム要素 ── */
+  .form-label {
+    display: block;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--green-dark);
+    margin-bottom: 5px;
+  }
+  .form-input {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    padding: 11px 14px;
+    font-family: inherit;
+    font-size: 1rem;
+    color: var(--text-main);
+    background: #fff;
+    transition: border-color .15s;
+  }
+  .form-input:focus { outline: none; border-color: var(--green-mid); }
+  .form-group { margin-bottom: 14px; }
+
+  /* ── モーダル ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 200;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+    animation: fadeIn .15s;
+  }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  .modal {
+    background: #fff;
+    border-radius: 20px 20px 0 0;
+    width: 100%;
+    max-width: 520px;
+    padding: 24px 20px 36px;
+    animation: slideUp .2s;
+  }
+  @keyframes slideUp { from { transform: translateY(60px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+  .modal-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin-bottom: 18px;
+    color: var(--green-dark);
+  }
+  .modal-close {
+    float: right;
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    color: var(--text-sub);
+    line-height: 1;
+    margin-top: -4px;
+  }
+
+  /* ── 汎用ボタン ── */
+  .btn-primary {
+    width: 100%;
+    background: var(--green-dark);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: opacity .12s;
+  }
+  .btn-primary:hover { opacity: .87; }
+  .btn-secondary {
+    width: 100%;
+    background: var(--green-light);
+    color: var(--green-dark);
+    border: none;
+    border-radius: 12px;
+    padding: 12px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: .9rem;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+
+  /* ── ピン入力 ── */
+  .pin-dots {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 18px 0;
+  }
+  .pin-dot {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background .15s;
+  }
+  .pin-dot.filled { background: var(--green-dark); }
+  .pin-keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    max-width: 280px;
+    margin: 0 auto;
+  }
+  .pin-key {
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .1s;
+    color: var(--text-main);
+  }
+  .pin-key:hover { background: var(--green-light); }
+  .pin-key.del { color: var(--red); }
+
+  /* ── タブ ── */
+  .tab-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    background: var(--green-light);
+    border-radius: 12px;
+    padding: 4px;
+  }
+  .tab-btn {
+    flex: 1;
+    border: none;
+    border-radius: 9px;
+    padding: 9px 8px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: .82rem;
+    cursor: pointer;
+    background: transparent;
+    color: var(--green-dark);
+    transition: background .15s, color .15s;
+  }
+  .tab-btn.active {
+    background: var(--green-dark);
+    color: #fff;
+  }
+
+  /* ── トースト ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1B3A2D;
+    color: #fff;
+    padding: 12px 22px;
+    border-radius: 99px;
+    font-size: .88rem;
+    font-weight: 600;
+    z-index: 999;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,.22);
+    animation: fadeIn .2s;
+  }
+
+  .empty-state {
+    text-align: center;
+    color: var(--text-sub);
+    padding: 28px 0;
+    font-size: .88rem;
+  }
+
+  /* ── ページ ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── 親画面タイトル ── */
+  .parent-indicator {
+    background: var(--amber-light);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: .82rem;
+    color: #7A5200;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ヘッダー -->
+<header class="app-header">
+  <h1>🌿 こづかいちょう</h1>
+  <button class="header-btn" id="switchModeBtn">🔑 親モード</button>
+</header>
+
+<!-- ========== 子ども画面 ========== -->
+<div class="page active" id="childPage">
+  <div class="container">
+
+    <!-- 貯金残高ヒーロー -->
+    <div class="balance-hero">
+      <div class="balance-label">🐷 いまの貯金箱の残高</div>
+      <div>
+        <span class="balance-amount" id="balanceAmount">0</span>
+        <span class="balance-unit">円</span>
+      </div>
+      <div class="balance-sub">
+        <span>📅 今月の手渡し合計</span>
+        <span id="monthlyHandedAmount" style="font-weight:800;">0 円</span>
+      </div>
+    </div>
+
+    <!-- 申請ボタン -->
+    <div class="section-title">申請する</div>
+    <div class="action-grid">
+      <button class="action-btn btn-allowance" onclick="openRequestModal('allowance')">
+        <span class="icon">💴</span>お小遣い<br><small style="font-weight:500;font-size:.72rem;">手渡し</small>
+      </button>
+      <button class="action-btn btn-bonus" onclick="openRequestModal('bonus')">
+        <span class="icon">⭐</span>ボーナス<br><small style="font-weight:500;font-size:.72rem;">手渡し</small>
+      </button>
+      <button class="action-btn btn-deposit" onclick="openRequestModal('deposit')">
+        <span class="icon">🏦</span>貯金に<br>預ける
+      </button>
+      <button class="action-btn btn-withdraw" onclick="openRequestModal('withdraw')">
+        <span class="icon">💸</span>貯金から<br>引き出す
+      </button>
+    </div>
+
+    <!-- 履歴 -->
+    <div class="section-title">履歴</div>
+    <div id="historyList" class="history-list">
+      <div class="empty-state">読み込み中…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 親画面 ========== -->
+<div class="page" id="parentPage">
+  <div class="container">
+    <div class="parent-indicator">🔑 親モードで操作中</div>
+
+    <!-- タブ -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('pending')">承認待ち</button>
+      <button class="tab-btn" onclick="switchTab('history')">すべての履歴</button>
+      <button class="tab-btn" onclick="switchTab('adjust')">残高調整</button>
+    </div>
+
+    <!-- 承認待ちタブ -->
+    <div id="tab-pending">
+      <div id="pendingList">
+        <div class="empty-state">読み込み中…</div>
+      </div>
+    </div>
+
+    <!-- 履歴タブ -->
+    <div id="tab-history" style="display:none;">
+      <div id="parentHistoryList" class="history-list">
+        <div class="empty-state">読み込み中…</div>
+      </div>
+    </div>
+
+    <!-- 残高調整タブ -->
+    <div id="tab-adjust" style="display:none;">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:14px;">現在の貯金残高</div>
+        <div style="font-size:2.2rem;font-weight:900;color:var(--green-dark);margin-bottom:18px;" id="adjustCurrentBalance">0 円</div>
+        <div class="form-group">
+          <label class="form-label">調整後の残高（円）</label>
+          <input class="form-input" type="number" id="adjustBalanceInput" placeholder="例: 5000" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">メモ（理由など）</label>
+          <input class="form-input" type="text" id="adjustMemoInput" placeholder="例: 現金と合わせて確認">
+        </div>
+        <button class="btn-primary" onclick="adjustBalance()">残高を更新する</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 申請モーダル ========== -->
+<div class="modal-overlay" id="requestModal" style="display:none;" onclick="closeModalOnOverlay(event,'requestModal')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('requestModal')">✕</button>
+    <div class="modal-title" id="requestModalTitle">申請する</div>
+    <div class="form-group">
+      <label class="form-label">金額（円）</label>
+      <input class="form-input" type="number" id="requestAmount" placeholder="例: 1000" min="1">
+    </div>
+    <button class="btn-primary" id="requestSubmitBtn" onclick="submitRequest()">親に申請する 📨</button>
+    <button class="btn-secondary" onclick="closeModal('requestModal')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ========== 暗証番号モーダル ========== -->
+<div class="modal-overlay" id="pinModal" style="display:none;" onclick="closeModalOnOverlay(event,'pinModal')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('pinModal')">✕</button>
+    <div class="modal-title" style="text-align:center;">🔑 暗証番号を入力</div>
+    <div class="pin-dots" id="pinDots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="pin-keypad">
+      <button class="pin-key" onclick="pinKey('1')">1</button>
+      <button class="pin-key" onclick="pinKey('2')">2</button>
+      <button class="pin-key" onclick="pinKey('3')">3</button>
+      <button class="pin-key" onclick="pinKey('4')">4</button>
+      <button class="pin-key" onclick="pinKey('5')">5</button>
+      <button class="pin-key" onclick="pinKey('6')">6</button>
+      <button class="pin-key" onclick="pinKey('7')">7</button>
+      <button class="pin-key" onclick="pinKey('8')">8</button>
+      <button class="pin-key" onclick="pinKey('9')">9</button>
+      <button class="pin-key" onclick="pinKey('C')" style="font-size:.9rem;color:var(--text-sub);">クリア</button>
+      <button class="pin-key" onclick="pinKey('0')">0</button>
+      <button class="pin-key del" onclick="pinKey('DEL')">⌫</button>
+    </div>
+    <div id="pinError" style="color:var(--red);text-align:center;font-size:.82rem;margin-top:12px;min-height:20px;"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  設定（ここを書き換えてください）
+// ═══════════════════════════════════════════════
+const SUPABASE_URL    = 'https://ipveilkontewclixfjto.supabase.co';
+const SUPABASE_ANON   = 'sb_publishable_KDFG4fnMjVScR-N2NSexrw_tKaawJuD';
+const PARENT_PASSCODE = '1124';   // 4桁の暗証番号
+
+// ═══════════════════════════════════════════════
+//  Supabase 初期化（1回のみ）
+// ═══════════════════════════════════════════════
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ═══════════════════════════════════════════════
+//  状態
+// ═══════════════════════════════════════════════
+let currentMode        = 'child';   // 'child' | 'parent'
+let currentRequestType = null;
+let pinBuffer          = '';
+let currentBalance     = 0;
+let activeTab          = 'pending';
+
+// ═══════════════════════════════════════════════
+//  初期化
+// ═══════════════════════════════════════════════
+async function init() {
+  await loadBalance();
+  await loadChildHistory();
+  setupRealtime();
+}
+
+// ═══════════════════════════════════════════════
+//  Supabase Realtime
+// ═══════════════════════════════════════════════
+function setupRealtime() {
+  db.channel('realtime-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => {
+      loadBalance();
+      loadChildHistory();
+      if (currentMode === 'parent') {
+        loadPendingRequests();
+        loadParentHistory();
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'balance' }, () => {
+      loadBalance();
+    })
+    .subscribe();
+}
+
+// ═══════════════════════════════════════════════
+//  残高読み込み
+// ═══════════════════════════════════════════════
+async function loadBalance() {
+  const { data } = await db.from('balance').select('amount').eq('id', 1).single();
+  currentBalance = data ? data.amount : 0;
+  document.getElementById('balanceAmount').textContent = currentBalance.toLocaleString();
+  document.getElementById('adjustCurrentBalance').textContent = currentBalance.toLocaleString() + ' 円';
+}
+
+// ═══════════════════════════════════════════════
+//  子ども履歴
+// ═══════════════════════════════════════════════
+async function loadChildHistory() {
+  const { data } = await db
+    .from('transactions')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  renderChildHistory(data || []);
+  calcMonthlyHandout(data || []);
+}
+
+function calcMonthlyHandout(rows) {
+  const now = new Date();
+  const total = rows
+    .filter(r => {
+      const d = new Date(r.created_at);
+      return (r.type === 'allowance' || r.type === 'bonus')
+        && r.status === 'approved'
+        && d.getFullYear() === now.getFullYear()
+        && d.getMonth() === now.getMonth();
+    })
+    .reduce((s, r) => s + r.amount, 0);
+  document.getElementById('monthlyHandedAmount').textContent = total.toLocaleString() + ' 円';
+}
+
+const TYPE_LABELS = {
+  allowance: { label: '💴 お小遣い', cls: 'amount-in'  },
+  bonus:     { label: '⭐ ボーナス',  cls: 'amount-in'  },
+  deposit:   { label: '🏦 貯金預ける', cls: 'amount-in'  },
+  withdraw:  { label: '💸 貯金引き出す', cls: 'amount-out' },
+  adjust:    { label: '🔧 残高調整',  cls: ''           },
+};
+
+function renderChildHistory(rows) {
+  const el = document.getElementById('historyList');
+  if (!rows.length) { el.innerHTML = '<div class="empty-state">まだ履歴がありません</div>'; return; }
+
+  el.innerHTML = rows.map(r => {
+    const t   = TYPE_LABELS[r.type] || { label: r.type, cls: '' };
+    const neg = r.type === 'withdraw';
+    const amtCls = neg ? 'amount-out' : 'amount-in';
+    const prefix = neg ? '−' : '+';
+    const badgeCls = r.status === 'pending' ? 'badge-pending'
+                   : r.status === 'approved' ? 'badge-approved' : 'badge-rejected';
+    const badgeLabel = r.status === 'pending' ? '承認待ち'
+                     : r.status === 'approved' ? '完了' : '却下';
+    const memo = r.memo ? `<div class="h-memo">💬 ${escHtml(r.memo)}</div>` : '';
+    const dateStr = new Date(r.created_at).toLocaleDateString('ja-JP', { month:'short', day:'numeric' });
+    return `
+      <div class="history-item">
+        <div class="h-type">${t.label}</div>
+        <div class="h-amount ${amtCls}">${prefix}${r.amount.toLocaleString()}円</div>
+        <div class="h-date">${dateStr}</div>
+        <div style="text-align:right;"><span class="badge ${badgeCls}">${badgeLabel}</span></div>
+        ${memo}
+      </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  申請モーダル
+// ═══════════════════════════════════════════════
+const MODAL_TITLES = {
+  allowance: '💴 お小遣い申請',
+  bonus:     '⭐ ボーナス申請',
+  deposit:   '🏦 貯金に預ける（入金）',
+  withdraw:  '💸 貯金から引き出す（出金）',
+};
+
+function openRequestModal(type) {
+  currentRequestType = type;
+  document.getElementById('requestModalTitle').textContent = MODAL_TITLES[type];
+  document.getElementById('requestAmount').value = '';
+  openModal('requestModal');
+}
+
+async function submitRequest() {
+  const amountVal = parseInt(document.getElementById('requestAmount').value, 10);
+  if (!amountVal || amountVal <= 0) { showToast('金額を入力してください'); return; }
+
+  if (currentRequestType === 'withdraw' && amountVal > currentBalance) {
+    showToast('貯金残高が足りません 🐷');
+    return;
+  }
+
+  const btn = document.getElementById('requestSubmitBtn');
+  btn.disabled = true; btn.textContent = '申請中…';
+
+  const { error } = await db.from('transactions').insert({
+    type: currentRequestType,
+    amount: amountVal,
+    status: 'pending',
+  });
+
+  btn.disabled = false;
+  btn.textContent = '親に申請する 📨';
+
+  if (error) { showToast('エラーが発生しました'); console.error(error); return; }
+  closeModal('requestModal');
+  showToast('申請しました！');
+}
+
+// ═══════════════════════════════════════════════
+//  親画面
+// ═══════════════════════════════════════════════
+async function loadPendingRequests() {
+  const { data } = await db
+    .from('transactions')
+    .select('*')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true });
+  renderPending(data || []);
+}
+
+function renderPending(rows) {
+  const el = document.getElementById('pendingList');
+  if (!rows.length) { el.innerHTML = '<div class="empty-state">承認待ちの申請はありません ✅</div>'; return; }
+
+  el.innerHTML = rows.map(r => {
+    const t = TYPE_LABELS[r.type] || { label: r.type };
+    const neg = r.type === 'withdraw';
+    const amtCls = neg ? 'amount-out' : 'amount-in';
+    const prefix = neg ? '−' : '+';
+    const dateStr = new Date(r.created_at).toLocaleString('ja-JP', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    return `
+      <div class="request-item" id="req-${r.id}">
+        <div class="request-meta">
+          <div>
+            <div class="request-type">${t.label}</div>
+            <div class="request-date">${dateStr}</div>
+          </div>
+          <div class="request-amount ${amtCls}">${prefix}${r.amount.toLocaleString()}円</div>
+        </div>
+        <textarea class="memo-input" rows="2" placeholder="ひとことメモ（例：お風呂掃除ありがとう）" id="memo-${r.id}"></textarea>
+        <div class="btn-row">
+          <button class="btn-approve" onclick="processRequest('${r.id}', 'approved', ${r.amount}, '${r.type}')">✅ 承認</button>
+          <button class="btn-reject"  onclick="processRequest('${r.id}', 'rejected', ${r.amount}, '${r.type}')">✕ 却下</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function processRequest(id, status, amount, type) {
+  const memo = document.getElementById(`memo-${id}`)?.value.trim() || null;
+
+  if (status === 'approved') {
+    // 残高更新
+    if (type === 'deposit') {
+      await db.from('balance').update({ amount: currentBalance + amount }).eq('id', 1);
+    } else if (type === 'withdraw') {
+      if (amount > currentBalance) { showToast('残高が不足しています'); return; }
+      await db.from('balance').update({ amount: currentBalance - amount }).eq('id', 1);
+    }
+  }
+
+  const { error } = await db.from('transactions').update({ status, memo }).eq('id', id);
+  if (error) { showToast('エラーが発生しました'); return; }
+  showToast(status === 'approved' ? '承認しました ✅' : '却下しました');
+}
+
+async function loadParentHistory() {
+  const { data } = await db
+    .from('transactions')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(80);
+
+  const el = document.getElementById('parentHistoryList');
+  if (!data || !data.length) { el.innerHTML = '<div class="empty-state">履歴がありません</div>'; return; }
+
+  el.innerHTML = data.map(r => {
+    const t   = TYPE_LABELS[r.type] || { label: r.type, cls: '' };
+    const neg = r.type === 'withdraw';
+    const amtCls = neg ? 'amount-out' : 'amount-in';
+    const prefix = neg ? '−' : '+';
+    const badgeCls = r.status === 'pending' ? 'badge-pending'
+                   : r.status === 'approved' ? 'badge-approved' : 'badge-rejected';
+    const badgeLabel = r.status === 'pending' ? '承認待ち'
+                     : r.status === 'approved' ? '完了' : '却下';
+    const memo = r.memo ? `<div class="h-memo">💬 ${escHtml(r.memo)}</div>` : '';
+    const dateStr = new Date(r.created_at).toLocaleDateString('ja-JP', { month:'short', day:'numeric' });
+    return `
+      <div class="history-item">
+        <div class="h-type">${t.label}</div>
+        <div class="h-amount ${amtCls}">${prefix}${r.amount.toLocaleString()}円</div>
+        <div class="h-date">${dateStr}</div>
+        <div style="text-align:right;"><span class="badge ${badgeCls}">${badgeLabel}</span></div>
+        ${memo}
+      </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  残高調整
+// ═══════════════════════════════════════════════
+async function adjustBalance() {
+  const val  = parseInt(document.getElementById('adjustBalanceInput').value, 10);
+  const memo = document.getElementById('adjustMemoInput').value.trim() || '残高手動調整';
+  if (isNaN(val) || val < 0) { showToast('正しい金額を入力してください'); return; }
+
+  const diff = val - currentBalance;
+  // 調整ログを残す
+  await db.from('transactions').insert({
+    type: 'adjust',
+    amount: Math.abs(diff),
+    status: 'approved',
+    memo: `${memo}（${diff >= 0 ? '+' : ''}${diff}円）`,
+  });
+
+  const { error } = await db.from('balance').update({ amount: val }).eq('id', 1);
+  if (error) { showToast('エラーが発生しました'); return; }
+  document.getElementById('adjustBalanceInput').value = '';
+  document.getElementById('adjustMemoInput').value = '';
+  showToast('残高を更新しました');
+}
+
+// ═══════════════════════════════════════════════
+//  タブ切り替え
+// ═══════════════════════════════════════════════
+function switchTab(tab) {
+  activeTab = tab;
+  ['pending','history','adjust'].forEach(t => {
+    document.getElementById(`tab-${t}`).style.display = t === tab ? '' : 'none';
+  });
+  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', ['pending','history','adjust'][i] === tab);
+  });
+  if (tab === 'history') loadParentHistory();
+}
+
+// ═══════════════════════════════════════════════
+//  モード切り替え（暗証番号）
+// ═══════════════════════════════════════════════
+document.getElementById('switchModeBtn').addEventListener('click', () => {
+  if (currentMode === 'parent') {
+    switchToChild();
+  } else {
+    pinBuffer = '';
+    updatePinDots();
+    document.getElementById('pinError').textContent = '';
+    openModal('pinModal');
+  }
+});
+
+function switchToChild() {
+  currentMode = 'child';
+  document.getElementById('childPage').classList.add('active');
+  document.getElementById('parentPage').classList.remove('active');
+  document.getElementById('switchModeBtn').textContent = '🔑 親モード';
+}
+
+function switchToParent() {
+  currentMode = 'parent';
+  document.getElementById('childPage').classList.remove('active');
+  document.getElementById('parentPage').classList.add('active');
+  document.getElementById('switchModeBtn').textContent = '🧒 子どもモード';
+  loadPendingRequests();
+  loadBalance();
+}
+
+// ── ピン入力 ──
+function pinKey(k) {
+  if (k === 'DEL') { pinBuffer = pinBuffer.slice(0, -1); }
+  else if (k === 'C') { pinBuffer = ''; }
+  else if (pinBuffer.length < 4 && /\d/.test(k)) { pinBuffer += k; }
+
+  updatePinDots();
+
+  if (pinBuffer.length === 4) {
+    setTimeout(() => {
+      if (pinBuffer === PARENT_PASSCODE) {
+        closeModal('pinModal');
+        switchToParent();
+      } else {
+        document.getElementById('pinError').textContent = '暗証番号が違います';
+        pinBuffer = '';
+        updatePinDots();
+      }
+    }, 150);
+  }
+}
+
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById(`pd${i}`).classList.toggle('filled', i < pinBuffer.length);
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  ユーティリティ
+// ═══════════════════════════════════════════════
+function openModal(id)  { document.getElementById(id).style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+function closeModalOnOverlay(e, id) { if (e.target === document.getElementById(id)) closeModal(id); }
+
+let toastTimer;
+function showToast(msg) {
+  clearTimeout(toastTimer);
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  toastTimer = setTimeout(() => el.remove(), 2600);
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════
+//  起動
+// ═══════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
